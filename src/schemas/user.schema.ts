@@ -23,10 +23,8 @@ export const updateUserSchema = z
     message: "Minimal satu field harus diisi",
   });
 
-export const idParamSchema = z.object({
-  id: z.coerce.number({ error: "ID harus angka" }).int("ID harus bilangan bulat").positive("ID harus positif"),
-});
+// Dipindah ke common.schema.ts agar bisa dipakai ulang modul lain.
+export { idParamSchema, type IdParam } from "./common.schema.js";
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
-export type IdParam = z.infer<typeof idParamSchema>;
