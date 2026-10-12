@@ -3,8 +3,10 @@ import type { IdParam } from "../schemas/common.schema.js";
 import type {
   ListReportsQuery,
   ReportBodyInput,
+  UpdateStatusInput,
 } from "../schemas/report.schema.js";
 import {
+  changeStatus,
   createReport,
   getReportDetail,
   listReports,
@@ -54,6 +56,15 @@ export const updateReportController = asyncHandler(
     const user = requireLogin(req);
     const { id } = req.params as unknown as IdParam;
     const report = await updateReport(id, user.id, req.body as ReportBodyInput);
+    res.json(report);
+  },
+);
+
+export const changeStatusController = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const user = requireLogin(req);
+    const { id } = req.params as unknown as IdParam;
+    const report = await changeStatus(id, user.id, req.body as UpdateStatusInput);
     res.json(report);
   },
 );

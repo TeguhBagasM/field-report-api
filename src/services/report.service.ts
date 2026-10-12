@@ -1,7 +1,11 @@
 import { pool } from "../db/pool.js";
 import type { UserRole } from "../types/express.js";
 import { HttpError } from "../utils/httpError.js";
-import type { ListReportsQuery, ReportBodyInput } from "../schemas/report.schema.js";
+import type {
+  ListReportsQuery,
+  ReportBodyInput,
+  UpdateStatusInput,
+} from "../schemas/report.schema.js";
 
 export type ReportStatus = "pending" | "approved" | "rejected";
 
@@ -33,7 +37,7 @@ export type ApprovalItem = {
 
 export type ReportDetail = ReportItem & { approvals: ApprovalItem[] };
 
-type ReportRow = {
+export type ReportRow = {
   id: number;
   name: string;
   description: string;
@@ -50,7 +54,7 @@ type ReportRow = {
   last_approver_name: string | null;
 };
 
-const REPORT_COLUMNS = `
+export const REPORT_COLUMNS = `
   r.id, r.name, r.description, r.status, r.created_at, r.updated_at,
   r.created_by, u.name AS reporter_name,
   la.id AS last_approval_id, la.decision AS last_decision, la.note AS last_note,
@@ -58,7 +62,7 @@ const REPORT_COLUMNS = `
   au.name AS last_approver_name
 `;
 
-const REPORT_FROM = `
+export const REPORT_FROM = `
   reports r
   JOIN users u ON u.id = r.created_by
   LEFT JOIN LATERAL (
@@ -72,7 +76,7 @@ const REPORT_FROM = `
 `;
 
 /** Satu-satunya mapper row -> JSON agar bentuk respons konsisten. */
-function toReportItem(row: ReportRow): ReportItem {
+export function toReportItem(row: ReportRow): ReportItem {
   return {
     id: row.id,
     name: row.name,
@@ -230,4 +234,46 @@ export async function updateReport(
     throw new HttpError(404, "Laporan tidak ditemukan");
   }
   throw new HttpError(409, "Laporan tidak bisa diedit karena sudah diputuskan");
+}
+
+export async function changeStatus(
+  reportId: number,
+  approverId: number,
+  data: UpdateStatusInput,
+): Promise<ReportDetail> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows } = await client.query<{ status: ReportStatus }>(
+      "SELECT status FROM reports WHERE id = $1 FOR UPDATE",
+      [reportId],
+    );
+    const current = rows[0];
+    if (!current) {
+      throw new HttpError(404, "Laporan tidak ditemukan");
+    }
+    if (current.status === data.status) {
+      throw new HttpError(409, `Laporan sudah berstatus ${data.status}`);
+    }
+
+    await client.query("UPDATE reports SET status = $2, updated_at = NOW() WHERE id = $1", [
+      reportId,
+      data.status,
+    ]);
+    await client.query(
+      "INSERT INTO report_approvals (report_id, approver_id, decision, note) VALUES ($1, $2, $3, $4)",
+      [reportId, approverId, data.status, data.note ?? null],
+    );
+
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  // Dibaca setelah COMMIT; bentuk JSON sama persis seperti GET /reports/:id.
+  return getReportDetail(reportId, { id: approverId, role: "approver" });
 }

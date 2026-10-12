@@ -18,3 +18,12 @@ export const listReportsQuerySchema = z.object({
 
 export type ReportBodyInput = z.infer<typeof reportBodySchema>;
 export type ListReportsQuery = z.infer<typeof listReportsQuerySchema>;
+
+export const updateStatusSchema = z.object({
+  status: z.enum(["approved", "rejected"], {
+    error: "Status harus approved atau rejected",
+  }),
+  note: z.string().trim().max(500, "Catatan maksimal 500 karakter").optional(),
+});
+
+export type UpdateStatusInput = z.infer<typeof updateStatusSchema>;

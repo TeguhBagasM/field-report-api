@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  changeStatusController,
   createReportController,
   getReportDetailController,
   listReportsController,
@@ -12,6 +13,7 @@ import { idParamSchema } from "../schemas/common.schema.js";
 import {
   listReportsQuerySchema,
   reportBodySchema,
+  updateStatusSchema,
 } from "../schemas/report.schema.js";
 
 const reportsRoutes = Router();
@@ -37,6 +39,13 @@ reportsRoutes.put(
   validate(idParamSchema, "params"),
   validate(reportBodySchema),
   updateReportController,
+);
+reportsRoutes.patch(
+  "/:id/status",
+  requireRole("approver"),
+  validate(idParamSchema, "params"),
+  validate(updateStatusSchema),
+  changeStatusController,
 );
 
 export default reportsRoutes;
