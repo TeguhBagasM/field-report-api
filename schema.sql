@@ -26,6 +26,12 @@ CREATE TABLE reports (
 );
 CREATE INDEX idx_reports_created_by ON reports(created_by);
 CREATE INDEX idx_reports_status ON reports(status);
+-- Komposit untuk pola query panas (juga di migrations/001_indexes.sql):
+-- pelapor (created_by + order), filter status, dan LATERAL lastDecision.
+CREATE INDEX IF NOT EXISTS idx_reports_created_by_created_at
+  ON reports (created_by, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reports_status_created_at
+  ON reports (status, created_at DESC);
 
 CREATE TABLE report_approvals (
   id          SERIAL PRIMARY KEY,
@@ -36,3 +42,5 @@ CREATE TABLE report_approvals (
   decided_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX idx_approvals_report ON report_approvals(report_id);
+CREATE INDEX IF NOT EXISTS idx_approvals_report_decided_at
+  ON report_approvals (report_id, decided_at DESC);

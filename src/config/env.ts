@@ -8,6 +8,13 @@ const schema = z.object({
   JWT_SECRET: z.string().min(16, "JWT_SECRET minimal 16 karakter"),
   JWT_EXPIRES_IN: z.string().default("1d"),
   CORS_ORIGIN: z.string().default("http://localhost:5173"),
+  // Instrumentasi (request log + slow query) hanya aktif jika "true".
+  // Default "false" agar aman & senyap di production.
+  LOG_SLOW_QUERIES: z
+    .string()
+    .optional()
+    .default("false")
+    .transform((v) => v === "true"),
 });
 
 const parsed = schema.safeParse(process.env);

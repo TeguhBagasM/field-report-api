@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 import { pool } from "../db/pool.js";
+import { getAuthCache, setAuthCache } from "../utils/authCache.js";
 import { HttpError, asyncHandler } from "../utils/httpError.js";
 
 type JwtPayload = {
@@ -47,7 +48,22 @@ export const authenticate = asyncHandler(
       throw new HttpError(401, "Token tidak valid");
     }
 
+    // Cache in-memory (TTL 30 dtk) hanya aktif di server biasa;
+    // di serverless getAuthCache selalu miss (nonaktif otomatis).
+    const cached = getAuthCache(userId);
+    if (cached) {
+      if (cached.isActive !== true) {
+        throw new HttpError(401, "Token tidak valid");
+      }
+      req.user = { id: cached.user.id, role: cached.user.role, name: cached.user.name };
+      next();
+      return;
+    }
+
     const { rows } = await pool.query(
+      // Ringan: hanya kolom yang dipakai, lookup by PK. 1 query per request
+      // (0 query bila hit cache in-memory di server biasa; cache nonaktif
+      // otomatis di serverless — lihat utils/authCache.ts).
       "SELECT id, name, role, is_active FROM users WHERE id = $1",
       [userId],
     );
@@ -59,6 +75,7 @@ export const authenticate = asyncHandler(
       throw new HttpError(401, "Token tidak valid");
     }
 
+    setAuthCache(userId, { id: user.id, role: user.role, name: user.name }, user.is_active);
     req.user = { id: user.id, role: user.role, name: user.name };
     next();
   },

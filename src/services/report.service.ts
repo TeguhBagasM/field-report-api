@@ -148,18 +148,20 @@ export async function listReports(
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-  const { rows: countRows } = await pool.query<{ total: string }>(
+  // Data + count independen -> paralel (tanpa SELECT *, lastDecision via
+  // LATERAL join di REPORT_FROM; bentuk JSON tidak berubah).
+  const countPromise = pool.query<{ total: string }>(
     `SELECT COUNT(*) AS total FROM reports r ${where}`,
     values,
   );
-  const total = Number(countRows[0].total);
-
-  const { rows } = await pool.query<ReportRow>(
+  const dataPromise = pool.query<ReportRow>(
     `SELECT ${REPORT_COLUMNS} FROM ${REPORT_FROM}
      ${where} ORDER BY r.created_at DESC, r.id DESC
      LIMIT $${i++} OFFSET $${i++}`,
     [...values, limit, offset],
   );
+  const [{ rows: countRows }, { rows }] = await Promise.all([countPromise, dataPromise]);
+  const total = Number(countRows[0].total);
 
   return {
     data: rows.map(toReportItem),

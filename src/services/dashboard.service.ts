@@ -86,24 +86,28 @@ export async function getDashboardSummary(requester: {
   const usersPromise =
     requester.role === "admin"
       ? (async () => {
-          const { rows: agg } = await pool.query<{
-            total: number;
-            active: number;
-            inactive: number;
-          }>(
-            `SELECT COUNT(*)::int AS total,
-                    COUNT(*) FILTER (WHERE is_active)::int AS active,
-                    COUNT(*) FILTER (WHERE NOT is_active)::int AS inactive
-             FROM users`,
-          );
-          const { rows: roles } = await pool.query<{ role: UserRole; count: number }>(
-            `SELECT role, COUNT(*)::int AS count FROM users GROUP BY role`,
-          );
+          // Dua agregat independen dijalankan paralel (tetap 2 query ringan,
+          // tanpa N+1; bentuk JSON tidak berubah).
+          const [aggResult, rolesResult] = await Promise.all([
+            pool.query<{
+              total: number;
+              active: number;
+              inactive: number;
+            }>(
+              `SELECT COUNT(*)::int AS total,
+                      COUNT(*) FILTER (WHERE is_active)::int AS active,
+                      COUNT(*) FILTER (WHERE NOT is_active)::int AS inactive
+               FROM users`,
+            ),
+            pool.query<{ role: UserRole; count: number }>(
+              `SELECT role, COUNT(*)::int AS count FROM users GROUP BY role`,
+            ),
+          ]);
           const byRole = { admin: 0, pelapor: 0, approver: 0 };
-          for (const r of roles) {
+          for (const r of rolesResult.rows) {
             byRole[r.role] = r.count;
           }
-          return { ...agg[0], byRole };
+          return { ...aggResult.rows[0], byRole };
         })()
       : Promise.resolve(null);
 

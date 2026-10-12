@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { pool } from "../db/pool.js";
 import type { UserRole } from "../types/express.js";
+import { invalidateAuthCache } from "../utils/authCache.js";
 import { HttpError } from "../utils/httpError.js";
 import type { CreateUserInput, UpdateUserInput } from "../schemas/user.schema.js";
 
@@ -121,5 +122,7 @@ export async function updateUser(
     `UPDATE users SET ${sets.join(", ")} WHERE id = $${i} RETURNING ${PUBLIC_COLUMNS}`,
     [...values, id],
   );
+  // Invalidasi cache auth agar perubahan role/status/nama langsung berlaku.
+  invalidateAuthCache(id);
   return toPublicUser(updated[0]);
 }
