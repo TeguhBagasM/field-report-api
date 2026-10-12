@@ -37,6 +37,13 @@ Smoke test end-to-end (butuh server menyala):
 Repo/backend ini siap deploy sebagai Vercel Project terpisah:
 
 - **Root Directory** project diisi `backend` (atau deploy dari repo backend tersendiri).
+- Pastikan **Install Command** menggunakan `npm install`/default Vercel dan
+  **Build Command** adalah `npm run build`. Jangan mengatur `NPM_CONFIG_PRODUCTION`
+  atau `npm install --omit=dev` pada tahap build; compiler TypeScript dan type
+  definitions lain berada di `devDependencies`.
+- `@types/node` sengaja berada di `dependencies` karena `tsconfig.json` secara
+  eksplisit memuat type library `node`. Ini mencegah error `TS2688` pada
+  environment deploy yang menghilangkan dev dependencies.
 - File `api/index.ts` adalah entry serverless (me-export `app` Express tanpa
   `app.listen`), dan `vercel.json` meneruskan semua `/api/*` ke sana.
 - File `.env` tidak ikut deploy — isi env lewat

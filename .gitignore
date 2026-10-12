@@ -4,6 +4,7 @@ node_modules/
 # Env & secrets (jangan commit!)
 .env
 .env.local
+.env.production
 .env.*.local
 !.env.example
 
